@@ -52,9 +52,9 @@ slide.dx = Math.Int(target.w * 0.55);
 slide.dy = Math.Int(target.h * 0.30);
 
 // Timing in refresh ticks (~50 Hz)
-FADE_END = 45;
-SLIDE_BEG = 35;
-SLIDE_END = 95;
+FADE_END = 8;
+SLIDE_BEG = 3;
+SLIDE_END = 18;
 
 fun ease_out(p) {
     q = 1 - p;
