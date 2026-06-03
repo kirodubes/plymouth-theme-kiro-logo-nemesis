@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=kiro-logo
+Description=Kiro Linux logo boot theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/kiro-logo
+ScriptFile=/usr/share/plymouth/themes/kiro-logo/kiro-logo.script

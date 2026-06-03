@@ -1,0 +1,201 @@
+// kiro-logo — "self-assembling K" boot splash.
+//
+// The Kiro logo is split into two layers cut from the same 1024x948 canvas
+// (so identical sprite coordinates align them pixel-perfect):
+//   logo-body.png  — the blue K body (notch where the wedge lands is cut a few
+//                    px wide so no green edge ghosts through before assembly)
+//   logo-wedge.png — the green lower-right wedge
+// Animation: the blue body fades in, then the green wedge eases in from the
+// lower-right and locks into the notch, then the whole mark breathes gently.
+
+// Screen size
+screen.w = Window.GetWidth(0);
+screen.h = Window.GetHeight(0);
+screen.half.w = screen.w / 2;
+screen.half.h = screen.h / 2;
+
+// Prompt / message state
+question = null;
+answer = null;
+message = null;
+bullets = null;
+prompt = null;
+bullet.image = Image.Text("*", 1, 1, 1);
+
+state.status = "play";
+state.time = 0.0;
+
+//--------------------------------- Logo layers ---------------------------------
+
+target.h = Math.Int(screen.h * 0.40);
+body.src = Image("logo-body.png");
+logo.scale = target.h / body.src.GetHeight();
+target.w = Math.Int(body.src.GetWidth() * logo.scale);
+
+body.image = body.src.Scale(target.w, target.h);
+wedge.image = Image("logo-wedge.png").Scale(target.w, target.h);
+
+home.x = screen.half.w - target.w / 2;
+home.y = screen.half.h - target.h / 2;
+
+body.sprite = Sprite(body.image);
+body.sprite.SetX(home.x);
+body.sprite.SetY(home.y);
+body.sprite.SetOpacity(0);
+
+wedge.sprite = Sprite(wedge.image);
+wedge.sprite.SetZ(1);
+wedge.sprite.SetOpacity(0);
+
+// Wedge enters from the lower-right
+slide.dx = Math.Int(target.w * 0.55);
+slide.dy = Math.Int(target.h * 0.30);
+
+// Timing in refresh ticks (~50 Hz)
+FADE_END = 45;
+SLIDE_BEG = 35;
+SLIDE_END = 95;
+
+fun ease_out(p) {
+    q = 1 - p;
+    return 1 - q * q * q;
+}
+
+fun refresh_callback() {
+    t = state.time;
+
+    if (t <= FADE_END)
+        body.sprite.SetOpacity(t / FADE_END);
+    else
+        body.sprite.SetOpacity(1);
+
+    if (t < SLIDE_BEG) {
+        wedge.sprite.SetOpacity(0);
+        wedge.sprite.SetX(home.x + slide.dx);
+        wedge.sprite.SetY(home.y + slide.dy);
+    } else if (t <= SLIDE_END) {
+        e = ease_out((t - SLIDE_BEG) / (SLIDE_END - SLIDE_BEG));
+        wedge.sprite.SetOpacity(e);
+        wedge.sprite.SetX(home.x + Math.Int(slide.dx * (1 - e)));
+        wedge.sprite.SetY(home.y + Math.Int(slide.dy * (1 - e)));
+    } else {
+        wedge.sprite.SetX(home.x);
+        wedge.sprite.SetY(home.y);
+        breath = (Math.Sin((t - SLIDE_END) * 0.04) + 1) / 2;
+        op = 0.9 + breath * 0.1;
+        body.sprite.SetOpacity(op);
+        wedge.sprite.SetOpacity(op);
+    }
+
+    state.time = t + 1.0;
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+//------------------------------------- Password prompt (login card) ---------------
+// A framed card centred below the logo: dark fill + Kiro-blue border (box.png), a lock
+// icon at the left (lock.png), the typed characters as blue dots (bullet.png), and an
+// "enter passphrase" label above. Layout math mirrors the stock `script` theme: box
+// centred, lock inset at the left, dots laid out after the lock, everything at high Z.
+
+fun card_setup() {
+    box.image = Image("box.png");
+    lock.image = Image("lock.png");
+
+    box.sprite = Sprite(box.image);
+    box.x = screen.half.w - box.image.GetWidth() / 2;
+    box.y = Math.Int(screen.h * 0.82) - box.image.GetHeight() / 2;
+    box.z = 10000;
+    box.sprite.SetPosition(box.x, box.y, box.z);
+
+    lock.sprite = Sprite(lock.image);
+    lock.x = box.x + 20;
+    lock.y = box.y + box.image.GetHeight() / 2 - lock.image.GetHeight() / 2;
+    lock.sprite.SetPosition(lock.x, lock.y, box.z + 1);
+
+    label.image = Image.Text("enter passphrase", 0.85, 0.9, 1.0);
+    label.sprite = Sprite(label.image);
+    label.sprite.SetPosition(screen.half.w - label.image.GetWidth() / 2,
+                             box.y - label.image.GetHeight() - 14, box.z);
+
+    global.card.box = box;
+    global.card.lock = lock;
+    global.card.label = label;
+    global.card.bullet_image = Image("bullet.png");
+    global.card.bullet_x = lock.x + lock.image.GetWidth() + 14;
+    global.card.bullet_cy = box.y + box.image.GetHeight() / 2;
+}
+
+fun card_opacity(o) {
+    if (global.card) {
+        card.box.sprite.SetOpacity(o);
+        card.lock.sprite.SetOpacity(o);
+        card.label.sprite.SetOpacity(o);
+        for (i = 0; card.bullet[i]; i++)
+            card.bullet[i].sprite.SetOpacity(o);
+    }
+}
+
+fun DisplayPasswordCallback(prompt, bulletCount) {
+    state.status = "pause";
+    if (!global.card)
+        card_setup();
+    else
+        card_opacity(1);
+
+    for (i = 0; card.bullet[i] || i < bulletCount; i++) {
+        if (!card.bullet[i]) {
+            card.bullet[i].sprite = Sprite(card.bullet_image);
+            card.bullet[i].sprite.SetPosition(
+                card.bullet_x + i * card.bullet_image.GetWidth(),
+                card.bullet_cy - card.bullet_image.GetHeight() / 2,
+                card.box.z + 2);
+        }
+        if (i < bulletCount)
+            card.bullet[i].sprite.SetOpacity(1);
+        else
+            card.bullet[i].sprite.SetOpacity(0);
+    }
+}
+Plymouth.SetDisplayPasswordFunction(DisplayPasswordCallback);
+
+//------------------------------------- Question prompt ----------------------------
+
+fun DisplayQuestionCallback(p, entry) {
+    question = null;
+    answer = null;
+
+    if (entry == "")
+        entry = "<answer>";
+
+    question.image = Image.Text(p, 1, 1, 1);
+    question.sprite = Sprite(question.image);
+    question.sprite.SetX(screen.half.w - question.image.GetWidth() / 2);
+    question.sprite.SetY(screen.h - 4 * question.image.GetHeight());
+
+    answer.image = Image.Text(entry, 1, 1, 1);
+    answer.sprite = Sprite(answer.image);
+    answer.sprite.SetX(screen.half.w - answer.image.GetWidth() / 2);
+    answer.sprite.SetY(screen.h - 2 * answer.image.GetHeight());
+}
+Plymouth.SetDisplayQuestionFunction(DisplayQuestionCallback);
+
+//--------------------------- Normal display ---------------------------------------
+
+fun DisplayNormalCallback() {
+    state.status = "play";
+    if (global.card)
+        card_opacity(0);
+    message = null;
+    question = null;
+    answer = null;
+}
+Plymouth.SetDisplayNormalFunction(DisplayNormalCallback);
+
+//----------------------------------------- Message --------------------------------
+
+fun MessageCallback(text) {
+    message.image = Image.Text(text, 1, 1, 1);
+    message.sprite = Sprite(message.image);
+    message.sprite.SetPosition(screen.half.w - message.image.GetWidth() / 2, message.image.GetHeight());
+}
+Plymouth.SetMessageFunction(MessageCallback);
