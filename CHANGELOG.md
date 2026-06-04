@@ -4,12 +4,16 @@
 
 ### What Changed
 - **Login-card LUKS prompt.** The encrypted-boot password prompt is now a framed card centred below the logo — dark fill with a Kiro-blue border (`box.png`), a lock icon at the left (`lock.png`), the typed characters as blue dots (`bullet.png`), and an "enter passphrase" label above — replacing the bare white "Enter Password" text + asterisks.
+- **Wedge-timing fix** — the green wedge never appeared on a real boot: it only *started* sliding at tick 35 (~0.7 s) and locked at tick 95 (~1.9 s), but the splash window closes well before that, so users saw only the blue body. Compressed the timeline so the full K assembles by ~0.36 s.
+- **Render-tested and confirmed** on the Kiro-next VM (encrypted boot) — both the assembled blue+green K and the login card now show correctly. Supersedes the earlier "not yet render-tested" note.
 
 ### Technical Details
 - New PIL-generated assets: `box.png` (440×64 rounded card, fill `#0C1B33`, 2px `#0195F7` border), `lock.png` (34×34 padlock), `bullet.png` (Kiro-blue dot with built-in spacing).
 - `kiro-logo.script`: `DisplayPasswordCallback` rewritten to the box+lock+dots pattern from the stock `script` theme — `card_setup()` builds the sprites once at high Z, dots laid out after the lock, `card_opacity()` + `DisplayNormalCallback` hide it on unlock. Card centred at `screen.h * 0.82` to clear the 40%-height logo.
-- This prompt only renders now because the installer switched to systemd initramfs hooks (`sd-encrypt` → Plymouth's built-in password agent); with the old busybox `encrypt` hook the script callback never painted.
-- **Not yet render-tested on real hardware/VM** — verified via a static PIL mockup using the same assets + layout math; needs a `plymouthd --debug` / encrypted-boot pass to confirm positioning and the `Image.Text` label font (may swap to a baked `label.png` if it looks plain).
+- **Timeline constants** in `kiro-logo.script`: `FADE_END 45→8`, `SLIDE_BEG 35→3`, `SLIDE_END 95→18` (at ~50 Hz: blue solid by ~0.16 s, wedge slides 0.06→0.36 s). The post-assembly sin-wave breath is unaffected (keys off `t − SLIDE_END`).
+- **PKGBUILD asset fix** (recipe in `~/KIRO-PKG-BUILD-APPS/plymouth-theme-kiro-logo-nemesis`): `package()` now installs all five images. `box.png`/`bullet.png`/`lock.png` were referenced by the script but not packaged, so the card loaded missing images and blanked.
+- This prompt only renders now because the installer switched to systemd initramfs hooks (`sd-encrypt` → Plymouth's built-in password agent); with the old busybox `encrypt` hook the script callback never painted. Confirmed on the VM that the graphical card requires the `plymouth` hook to be present in the **booted** initrd — see [HQ/RESUME.md](../../Insync/Kiro/Kiro-HQ/RESUME.md) for the BLS/kernel-install detail.
+- ⚠️ The timeline edit is committed pending push; ensure the `-nemesis` source repo is pushed before the package is rebuilt (PKGBUILD source is `git+…`).
 
 ## 2026.05.29
 
