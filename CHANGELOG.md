@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.06.04
+
+### What Changed
+- **Dropped the login card — back to KISS.** Reverted the framed box+lock+dots card to a simple centred **"Enter Password"** label with a row of dots beneath, matching the production theme's minimalism. The card mispositioned on a VirtualBox encrypted-boot test (box placed wrong relative to the logo), and the extra sprites/PNGs were more surface area to break across resolutions. The clean splash (one assembled K) reads better without it.
+- **Bigger prompt font.** The prompt and the dots now render at **`Sans Bold 20`** (previously Plymouth's tiny ~12 pt default), so the encrypted-boot prompt is legible without shouting. Chosen from a side-by-side preview of 20/28/36/48/60.
+- The wedge-timing fix (`FADE_END 8 / SLIDE_BEG 3 / SLIDE_END 18`) is retained — the green wedge still assembles by ~0.36 s.
+
+### Technical Details
+- `kiro-logo.script`: removed `card_setup()` / `card_opacity()` and the card-based `DisplayPasswordCallback`; restored the simple bare-text callback (centred `Image.Text("Enter Password", …)` at `screen.h − 4×textHeight`, dots at `screen.h − 2×bulletHeight`). `DisplayNormalCallback` clears `bullets`/`prompt` again. Font set via the 6th `Image.Text` arg: `Image.Text("Enter Password", 1, 1, 1, 1, "Sans Bold 20")` and the `*` bullet likewise.
+- **Removed dead assets** `box.png`, `bullet.png`, `lock.png` (git-recoverable) and dropped them from the PKGBUILD `package()` install line — the package now ships only `logo-body.png` + `logo-wedge.png` + `.script` + `.plymouth`.
+- Staged in **`-nemesis`** as the test vehicle (the `-next` ISO already pulls it). Pending: build the package, build the `-next` ISO, confirm on a fresh encrypted install, then port the font tweak into production `plymouth-theme-kiro-logo`.
+- ⚠️ PKGBUILD source is `git+…` — the `-nemesis` source repo must be pushed before the package is rebuilt.
+
 ## 2026.06.03
 
 ### What Changed

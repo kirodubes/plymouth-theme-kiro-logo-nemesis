@@ -20,7 +20,7 @@ answer = null;
 message = null;
 bullets = null;
 prompt = null;
-bullet.image = Image.Text("*", 1, 1, 1);
+bullet.image = Image.Text("*", 1, 1, 1, 1, "Sans Bold 20");
 
 state.status = "play";
 state.time = 0.0;
@@ -91,69 +91,26 @@ fun refresh_callback() {
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
-//------------------------------------- Password prompt (login card) ---------------
-// A framed card centred below the logo: dark fill + Kiro-blue border (box.png), a lock
-// icon at the left (lock.png), the typed characters as blue dots (bullet.png), and an
-// "enter passphrase" label above. Layout math mirrors the stock `script` theme: box
-// centred, lock inset at the left, dots laid out after the lock, everything at high Z.
+//------------------------------------- Password prompt ----------------------------
+// KISS: a bigger "Enter Password" label centred below the logo, with the typed
+// characters shown as a row of dots underneath. The framed card was dropped — the
+// box was fiddly to position reliably across resolutions (mispositioned in testing).
 
-fun card_setup() {
-    box.image = Image("box.png");
-    lock.image = Image("lock.png");
-
-    box.sprite = Sprite(box.image);
-    box.x = screen.half.w - box.image.GetWidth() / 2;
-    box.y = Math.Int(screen.h * 0.82) - box.image.GetHeight() / 2;
-    box.z = 10000;
-    box.sprite.SetPosition(box.x, box.y, box.z);
-
-    lock.sprite = Sprite(lock.image);
-    lock.x = box.x + 20;
-    lock.y = box.y + box.image.GetHeight() / 2 - lock.image.GetHeight() / 2;
-    lock.sprite.SetPosition(lock.x, lock.y, box.z + 1);
-
-    label.image = Image.Text("enter passphrase", 0.85, 0.9, 1.0);
-    label.sprite = Sprite(label.image);
-    label.sprite.SetPosition(screen.half.w - label.image.GetWidth() / 2,
-                             box.y - label.image.GetHeight() - 14, box.z);
-
-    global.card.box = box;
-    global.card.lock = lock;
-    global.card.label = label;
-    global.card.bullet_image = Image("bullet.png");
-    global.card.bullet_x = lock.x + lock.image.GetWidth() + 14;
-    global.card.bullet_cy = box.y + box.image.GetHeight() / 2;
-}
-
-fun card_opacity(o) {
-    if (global.card) {
-        card.box.sprite.SetOpacity(o);
-        card.lock.sprite.SetOpacity(o);
-        card.label.sprite.SetOpacity(o);
-        for (i = 0; card.bullet[i]; i++)
-            card.bullet[i].sprite.SetOpacity(o);
-    }
-}
-
-fun DisplayPasswordCallback(prompt, bulletCount) {
+fun DisplayPasswordCallback(nil, bulletCount) {
     state.status = "pause";
-    if (!global.card)
-        card_setup();
-    else
-        card_opacity(1);
+    totalWidth = bulletCount * bullet.image.GetWidth();
+    startPos = screen.half.w - totalWidth / 2;
 
-    for (i = 0; card.bullet[i] || i < bulletCount; i++) {
-        if (!card.bullet[i]) {
-            card.bullet[i].sprite = Sprite(card.bullet_image);
-            card.bullet[i].sprite.SetPosition(
-                card.bullet_x + i * card.bullet_image.GetWidth(),
-                card.bullet_cy - card.bullet_image.GetHeight() / 2,
-                card.box.z + 2);
-        }
-        if (i < bulletCount)
-            card.bullet[i].sprite.SetOpacity(1);
-        else
-            card.bullet[i].sprite.SetOpacity(0);
+    prompt.image = Image.Text("Enter Password", 1, 1, 1, 1, "Sans Bold 20");
+    prompt.sprite = Sprite(prompt.image);
+    prompt.sprite.SetX(screen.half.w - prompt.image.GetWidth() / 2);
+    prompt.sprite.SetY(screen.h - 4 * prompt.image.GetHeight());
+
+    bullets = null;
+    for (i = 0; i < bulletCount; i++) {
+        bullets[i].sprite = Sprite(bullet.image);
+        bullets[i].sprite.SetX(startPos + i * bullet.image.GetWidth());
+        bullets[i].sprite.SetY(screen.h - 2 * bullet.image.GetHeight());
     }
 }
 Plymouth.SetDisplayPasswordFunction(DisplayPasswordCallback);
@@ -183,8 +140,8 @@ Plymouth.SetDisplayQuestionFunction(DisplayQuestionCallback);
 
 fun DisplayNormalCallback() {
     state.status = "play";
-    if (global.card)
-        card_opacity(0);
+    bullets = null;
+    prompt = null;
     message = null;
     question = null;
     answer = null;
