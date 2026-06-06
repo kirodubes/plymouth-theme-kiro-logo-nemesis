@@ -3,30 +3,37 @@
 ## 2026.06.04
 
 ### What Changed
-- **Dropped the login card — back to KISS.** Reverted the framed box+lock+dots card to a simple centred **"Enter Password"** label with a row of dots beneath, matching the production theme's minimalism. The card mispositioned on a VirtualBox encrypted-boot test (box placed wrong relative to the logo), and the extra sprites/PNGs were more surface area to break across resolutions. The clean splash (one assembled K) reads better without it.
-- **Bigger prompt font.** The prompt and the dots now render at **`Sans Bold 20`** (previously Plymouth's tiny ~12 pt default), so the encrypted-boot prompt is legible without shouting. Chosen from a side-by-side preview of 20/28/36/48/60.
-- The wedge-timing fix (`FADE_END 8 / SLIDE_BEG 3 / SLIDE_END 18`) is retained — the green wedge still assembles by ~0.36 s.
+- **Wedge-timing fix + bigger prompt font, ported from `-nemesis` after a passing test.** The green wedge now assembles by ~0.36 s (was ~1.9 s, so it never showed inside the splash window), and the encrypted-boot "Enter Password" prompt + dots render at `Sans Bold 20` instead of Plymouth's tiny ~12 pt default.
+- Both changes were validated on fresh **encrypted and unencrypted** installs via `plymouth-theme-kiro-logo-nemesis` on the `-next` ISO before landing here. The fancy login-card experiment was rejected (mispositioned on VirtualBox) — production stays KISS: simple centred prompt, no card.
 
 ### Technical Details
-- `kiro-logo.script`: removed `card_setup()` / `card_opacity()` and the card-based `DisplayPasswordCallback`; restored the simple bare-text callback (centred `Image.Text("Enter Password", …)` at `screen.h − 4×textHeight`, dots at `screen.h − 2×bulletHeight`). `DisplayNormalCallback` clears `bullets`/`prompt` again. Font set via the 6th `Image.Text` arg: `Image.Text("Enter Password", 1, 1, 1, 1, "Sans Bold 20")` and the `*` bullet likewise.
-- **Removed dead assets** `box.png`, `bullet.png`, `lock.png` (git-recoverable) and dropped them from the PKGBUILD `package()` install line — the package now ships only `logo-body.png` + `logo-wedge.png` + `.script` + `.plymouth`.
-- Staged in **`-nemesis`** as the test vehicle (the `-next` ISO already pulls it). Pending: build the package, build the `-next` ISO, confirm on a fresh encrypted install, then port the font tweak into production `plymouth-theme-kiro-logo`.
-- ⚠️ PKGBUILD source is `git+…` — the `-nemesis` source repo must be pushed before the package is rebuilt.
+- `kiro-logo.script`: timeline constants `FADE_END 45→8`, `SLIDE_BEG 35→3`, `SLIDE_END 95→18` (post-assembly sin-wave breath unaffected — keys off `t − SLIDE_END`).
+- Font set via the 6th `Image.Text` arg: `Image.Text("Enter Password", 1, 1, 1, 1, "Sans Bold 20")` (line ~101) and the `*` bullet likewise (line 23).
+- This prompt only renders on encrypted boot once the installer uses systemd initramfs hooks (`sd-encrypt` → Plymouth's password agent); that switch shipped in parallel in `kiro-calamares-config`.
 
 ## 2026.06.03
 
 ### What Changed
-- **Login-card LUKS prompt.** The encrypted-boot password prompt is now a framed card centred below the logo — dark fill with a Kiro-blue border (`box.png`), a lock icon at the left (`lock.png`), the typed characters as blue dots (`bullet.png`), and an "enter passphrase" label above — replacing the bare white "Enter Password" text + asterisks.
-- **Wedge-timing fix** — the green wedge never appeared on a real boot: it only *started* sliding at tick 35 (~0.7 s) and locked at tick 95 (~1.9 s), but the splash window closes well before that, so users saw only the blue body. Compressed the timeline so the full K assembles by ~0.36 s.
-- **Render-tested and confirmed** on the Kiro-next VM (encrypted boot) — both the assembled blue+green K and the login card now show correctly. Supersedes the earlier "not yet render-tested" note.
+- **Reverted the password-card / "boxes" experiment** — the previous `-02`-era
+  commit (added `box.png`, `bullet.png`, `lock.png` and rewrote
+  `kiro-logo.script` with a framed LUKS login card) broke the splash at boot:
+  the logo dropped out and the prompt fell back to bare text. Rolled the source
+  repo back to the clean self-assembling-K logo.
 
 ### Technical Details
-- New PIL-generated assets: `box.png` (440×64 rounded card, fill `#0C1B33`, 2px `#0195F7` border), `lock.png` (34×34 padlock), `bullet.png` (Kiro-blue dot with built-in spacing).
-- `kiro-logo.script`: `DisplayPasswordCallback` rewritten to the box+lock+dots pattern from the stock `script` theme — `card_setup()` builds the sprites once at high Z, dots laid out after the lock, `card_opacity()` + `DisplayNormalCallback` hide it on unlock. Card centred at `screen.h * 0.82` to clear the 40%-height logo.
-- **Timeline constants** in `kiro-logo.script`: `FADE_END 45→8`, `SLIDE_BEG 35→3`, `SLIDE_END 95→18` (at ~50 Hz: blue solid by ~0.16 s, wedge slides 0.06→0.36 s). The post-assembly sin-wave breath is unaffected (keys off `t − SLIDE_END`).
-- **PKGBUILD asset fix** (recipe in `~/KIRO-PKG-BUILD-APPS/plymouth-theme-kiro-logo-nemesis`): `package()` now installs all five images. `box.png`/`bullet.png`/`lock.png` were referenced by the script but not packaged, so the card loaded missing images and blanked.
-- This prompt only renders now because the installer switched to systemd initramfs hooks (`sd-encrypt` → Plymouth's built-in password agent); with the old busybox `encrypt` hook the script callback never painted. Confirmed on the VM that the graphical card requires the `plymouth` hook to be present in the **booted** initrd — see [HQ/RESUME.md](../../Insync/Kiro/Kiro-HQ/RESUME.md) for the BLS/kernel-install detail.
-- ⚠️ The timeline edit is committed pending push; ensure the `-nemesis` source repo is pushed before the package is rebuilt (PKGBUILD source is `git+…`).
+- `git revert` of the boxes commit (new revert commit, history intact — no
+  force-push). Removed `box.png` / `bullet.png` / `lock.png`; restored the prior
+  `kiro-logo.script`. Theme dir back to `kiro-logo.plymouth`, `kiro-logo.script`,
+  `logo.png`, `logo-body.png`, `logo-wedge.png`.
+- The card experiment is preserved in the parallel
+  `plymouth-theme-kiro-logo-nemesis` repo (opt-in `conflicts`-only package),
+  where the wedge-timing and asset-packaging fixes were worked out and
+  render-tested.
+- The served `nemesis_repo` package was independently rolled back `26.06-02 → -01`.
+
+### Files Modified
+- `usr/share/plymouth/themes/kiro-logo/kiro-logo.script` (restored)
+- `usr/share/plymouth/themes/kiro-logo/box.png`, `bullet.png`, `lock.png` (removed)
 
 ## 2026.05.29
 
